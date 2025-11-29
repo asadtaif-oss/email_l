@@ -5,12 +5,17 @@ let scormAPI: any = null;
 
 function findAPI(win: any): any {
   let attempts = 0;
-  while ((win.API == null) && (win.parent != null) && (win.parent != win)) {
-    attempts++;
-    if (attempts > 7) return null;
-    win = win.parent;
+  try {
+    while ((win.API == null) && (win.parent != null) && (win.parent != win)) {
+      attempts++;
+      if (attempts > 7) return null;
+      win = win.parent;
+    }
+    return win.API;
+  } catch (e) {
+    // Catch Cross-Origin errors if running in iframe on different domain
+    return null;
   }
-  return win.API;
 }
 
 function getAPI() {
@@ -21,7 +26,7 @@ function getAPI() {
       scormAPI = findAPI(window.opener);
     }
   } catch (e) {
-    console.warn("SCORM API not found", e);
+    // Silent fail for SCORM discovery in dev/preview
   }
   return scormAPI;
 }
@@ -38,7 +43,8 @@ export const ScormService = {
         api.LMSCommit("");
       }
     } else {
-      console.warn("Could not find SCORM API adapter");
+      // Don't warn in console to keep it clean during dev/preview
+      // console.warn("Could not find SCORM API adapter");
     }
   },
 
