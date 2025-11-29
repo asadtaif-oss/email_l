@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { EmailSimulator } from './components/EmailSimulator';
 import { Certificate } from './components/Certificate';
 import { Assistant } from './components/Assistant';
@@ -8,6 +8,7 @@ import { generateMysteryReply } from './services/geminiService';
 import { Quiz } from './components/Quiz';
 import { MissionModal } from './components/MissionModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { ScormService } from './services/scormService';
 
 function App() {
   const [stage, setStage] = useState<GameStage>(GameStage.INTRO);
@@ -19,6 +20,16 @@ function App() {
       { id: '2', name: 'الأستاذ أسعد الذهلي', email: 'asaad4059@moe.om', avatar: 'https://ui-avatars.com/api/?name=Asaad+Al+Dhahli&background=4F46E5&color=fff', isFavorite: true }
   ]);
   const [mysteryReply, setMysteryReply] = useState<{subject: string, body: string} | null>(null);
+
+  // Initialize SCORM on load
+  useEffect(() => {
+    ScormService.init();
+    
+    // Cleanup on unmount
+    return () => {
+      ScormService.terminate();
+    };
+  }, []);
 
   // Lesson content based on the provided text
   const lessonContent: Record<string, string> = {
@@ -61,11 +72,16 @@ function App() {
       case GameStage.ADVANCED_CC_BCC: 
         nextStage = GameStage.QUIZ;
         setScore(s => s + 50); 
-        setShowMissionModal(false); // No mission modal for quiz, just the quiz component
+        setShowMissionModal(false); // No mission modal for quiz
         break;
       case GameStage.QUIZ:
         nextStage = GameStage.CERTIFICATE;
         setScore(s => s + 100);
+        // SCORM: Mark as passed when quiz is done and moving to certificate
+        ScormService.setCompletionStatus("passed");
+        // Calculate a rough score percentage (Total points possible is roughly 350-400)
+        // Sending raw score to LMS
+        ScormService.setScore(Math.min(score + 100, 100), 100); 
         break;
       default: break;
     }
@@ -79,7 +95,7 @@ function App() {
   ];
 
   if (stage === GameStage.CERTIFICATE) {
-    return <Certificate studentName={studentName || "المتعلم الذكي"} onRestart={() => { setStage(GameStage.INTRO); setScore(0); }} />;
+    return <Certificate studentName={studentName || "المتعلم الذكي"} onRestart={() => { setStage(GameStage.INTRO); setScore(0); ScormService.init(); }} />;
   }
 
   return (
